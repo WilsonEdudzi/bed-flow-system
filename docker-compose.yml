@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: bedflow-postgres
+    environment:
+      POSTGRES_DB: bedflowdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - bedflow-net
+
+  backend:
+    build:
+      context: ./Backend/hospital-bed-backend
+      dockerfile: Dockerfile
+    container_name: bedflow-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=bedflowdb
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+    depends_on:
+      - postgres
+    networks:
+      - bedflow-net
+
+  frontend:
+    build:
+      context: ./Frontend/hospital-bed-frontend
+      dockerfile: Dockerfile
+    container_name: bedflow-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api
+    depends_on:
+      - backend
+    networks:
+      - bedflow-net
+
+volumes:
+  pgdata:
+
+networks:
+  bedflow-net:
+    driver: bridge
