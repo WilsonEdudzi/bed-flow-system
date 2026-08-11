@@ -12,7 +12,7 @@ import {
   Search, Filter, ArrowRightLeft, Download, History, Sliders, Radio, User, UserCheck, Trash2
 } from "lucide-react";
 
-const API_BASE_URL = "http://localhost:8080/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
 const C = {
   bg: "#0F141C",
@@ -27,10 +27,10 @@ const C = {
   accentDim: "#2E6E68",
   accentBg: "rgba(87,199,190,0.12)",
   available: "#4CC988",      // Green
-  occupied: "#7E8AA0",       // Slate Grey
-  reserved: "#EFB94D",       // Amber/Yellow
-  cleaning: "#38BDF8",       // Medical Cyan/Teal
-  critical: "#F16456",       // Red
+  occupied: "#7E8AA0",        // Slate Grey
+  reserved: "#EFB94D",        // Amber/Yellow
+  cleaning: "#38BDF8",        // Medical Cyan/Teal
+  critical: "#F16456",        // Red
 };
 
 const FONT_DISPLAY = '"Space Grotesk", sans-serif';
