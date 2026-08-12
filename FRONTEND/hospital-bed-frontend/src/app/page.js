@@ -1711,7 +1711,13 @@ export default function BedFlowApp() {
                 </div>
 
                 {deptStats.map((dept) => {
-                  const deptBeds = filteredBeds.filter((b) => b.dept === dept.id);
+                  const deptBeds = filteredBeds
+                    .filter((b) => b.dept === dept.id)
+                    .sort((a, b) => {
+                      const numA = parseInt(a.id.replace(/\D/g, ""), 10) || 0;
+                      const numB = parseInt(b.id.replace(/\D/g, ""), 10) || 0;
+                      return numA - numB;
+                    });
                   if (deptBeds.length === 0 && (searchQuery || statusFilter !== "all")) return null;
 
                   return (
