@@ -33,3 +33,10 @@ input::-webkit-inner-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
 }
+
+/* Mobile responsiveness adjustments */
+@media (max-width: 768px) {
+  body {
+    padding: 0;
+  }
+}
