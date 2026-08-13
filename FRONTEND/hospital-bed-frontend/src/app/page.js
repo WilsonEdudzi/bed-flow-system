@@ -962,7 +962,7 @@ export default function BedFlowApp() {
   const [surgeMode, setSurgeMode] = useState(false);
   const [autoPoll, setAutoPoll] = useState(true);
   const [auditLogs, setAuditLogs] = useState([
-    { id: 1, time: new Date().toLocaleTimeString(), action: "SYSTEM INIT", details: "Connected to Spring Boot backend API." }
+    { id: 1, time: new Date().toLocaleTimeString(), timestamp: Date.now(), action: "SYSTEM INIT", details: "Connected to Spring Boot backend API." }
   ]);
 
   // Load session from sessionStorage immediately on mount to prevent flash
@@ -1000,10 +1000,12 @@ export default function BedFlowApp() {
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [showNotifications]);
 
-  // 2-Minute Auto-Clear Timer for Read Notifications
+  // 2-Minute Auto-Clear Timer for Read Notifications and Audit Logs
   useEffect(() => {
     const interval = setInterval(() => {
       const nowTime = Date.now();
+      
+      // Clear notifications read > 2 mins ago
       setNotifications((prev) => {
         const filtered = prev.filter((n) => {
           if (n.unread) return true;
@@ -1014,6 +1016,14 @@ export default function BedFlowApp() {
         }
         return filtered;
       });
+
+      // Clear audit logs older than 2 minutes
+      setAuditLogs((prev) =>
+        prev.filter((log) => {
+          if (!log.timestamp) return true;
+          return nowTime - log.timestamp < 120000;
+        })
+      );
     }, 10000);
 
     return () => clearInterval(interval);
@@ -1063,7 +1073,7 @@ export default function BedFlowApp() {
 
   const addLog = (action, details) => {
     setAuditLogs((prev) => [
-      { id: Date.now(), time: new Date().toLocaleTimeString(), action, details },
+      { id: Date.now(), time: new Date().toLocaleTimeString(), timestamp: Date.now(), action, details },
       ...prev
     ]);
   };
