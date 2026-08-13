@@ -95,9 +95,9 @@ public class AllocationService {
                 }
             }
 
-            // Boost ICU score automatically if patient is critical (Acuity 5)
+            // Boost ICU score automatically if patient is critical (Acuity 5), capped at max 30
             if (acuityVal == 5 && bed.getDept().equalsIgnoreCase("icu")) {
-                acuityFit += 15;
+                acuityFit = Math.min(30, acuityFit + 15);
             }
 
             List<Bed> deptBeds = allBeds.stream().filter(b -> b.getDept().equals(bed.getDept())).collect(Collectors.toList());
@@ -106,7 +106,7 @@ public class AllocationService {
             
             int loadBalance = isSurge ? (int) Math.round((1 - occPct) * 5) : (int) Math.round((1 - occPct) * 20);
 
-            // Fixed: Returns 0 bonus when isolation is not requested instead of defaulting to 7
+            // Returns 0 bonus when isolation is not requested instead of defaulting to 7
             int bonus = Boolean.TRUE.equals(req.getIsolation()) ? (dept.getIsolationCapable() >= 1.0 ? 10 : 5) : 0;
 
             int rawTotal = specialty + acuityFit + loadBalance + bonus;
