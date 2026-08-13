@@ -106,7 +106,8 @@ public class AllocationService {
             
             int loadBalance = isSurge ? (int) Math.round((1 - occPct) * 5) : (int) Math.round((1 - occPct) * 20);
 
-            int bonus = Boolean.TRUE.equals(req.getIsolation()) ? (dept.getIsolationCapable() >= 1.0 ? 10 : 5) : 7;
+            // Fixed: Returns 0 bonus when isolation is not requested instead of defaulting to 7
+            int bonus = Boolean.TRUE.equals(req.getIsolation()) ? (dept.getIsolationCapable() >= 1.0 ? 10 : 5) : 0;
 
             int rawTotal = specialty + acuityFit + loadBalance + bonus;
             int total = Math.max(0, Math.min(100, rawTotal));
