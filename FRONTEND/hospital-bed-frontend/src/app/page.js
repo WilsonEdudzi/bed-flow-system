@@ -943,7 +943,8 @@ export default function BedFlowApp() {
   
   const [activeTab, setActiveTab] = useState("board");
 
-  const [form, setForm] = useState({ name: "", acuity: 3, dept: "er", isolation: false });
+  // Updated form state: removed dept, added clinicalCategory and age
+  const [form, setForm] = useState({ name: "", acuity: 3, clinicalCategory: "general", age: 30, isolation: false });
   const [results, setResults] = useState(null); 
   const [successMsg, setSuccessMsg] = useState(null);
   const [now, setNow] = useState(null);
@@ -1142,7 +1143,7 @@ export default function BedFlowApp() {
       });
       const data = await res.json();
       setResults({ patient: { ...form }, candidates: data });
-      addLog("RUN ALLOCATION", `Calculated match candidates for patient '${form.name}' (Surge Mode: ${surgeMode ? 'ON' : 'OFF'}).`);
+      addLog("RUN ALLOCATION", `Calculated global smart-routing match candidates for patient '${form.name}' (Surge Mode: ${surgeMode ? 'ON' : 'OFF'}).`);
     } catch (err) {
       console.error("Allocation failed:", err);
     }
@@ -1167,7 +1168,7 @@ export default function BedFlowApp() {
         addNotification("Patient Allocation", `${patient.name || "Patient"} successfully allocated & admitted to ${bedId}.`);
         setResults(null);
         setSelectedBed(null);
-        setForm({ name: "", acuity: 3, dept: "er", isolation: false });
+        setForm({ name: "", acuity: 3, clinicalCategory: "general", age: 30, isolation: false });
         fetchData();
         setTimeout(() => setSuccessMsg(null), 4000);
       }
@@ -1804,6 +1805,33 @@ export default function BedFlowApp() {
                       style={inputStyle}
                     />
                   </div>
+
+                  <div style={{ marginBottom: 14 }}>
+                    <FieldLabel>Clinical Case Type / Category</FieldLabel>
+                    <select
+                      value={form.clinicalCategory}
+                      onChange={(e) => updateForm({ clinicalCategory: e.target.value })}
+                      style={inputStyle}
+                    >
+                      <option value="general">General Medical / Surgical</option>
+                      <option value="emergency">Emergency / Trauma</option>
+                      <option value="icu">Critical Care / Intensive Monitoring</option>
+                      <option value="pediatric">Pediatric Care</option>
+                      <option value="maternity">Maternity / Obstetric Care</option>
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: 14 }}>
+                    <FieldLabel>Patient Age</FieldLabel>
+                    <input
+                      type="number"
+                      value={form.age}
+                      onChange={(e) => updateForm({ age: parseInt(e.target.value) || 0 })}
+                      placeholder="e.g. 30"
+                      style={inputStyle}
+                    />
+                  </div>
+
                   <div style={{ marginBottom: 14 }}>
                     <FieldLabel>Acuity (1 stable – 5 critical)</FieldLabel>
                     <div style={{ display: "flex", gap: 6 }}>
@@ -1818,12 +1846,7 @@ export default function BedFlowApp() {
                       ))}
                     </div>
                   </div>
-                  <div style={{ marginBottom: 14 }}>
-                    <FieldLabel>Department needed</FieldLabel>
-                    <select value={form.dept} onChange={(e) => updateForm({ dept: e.target.value })} style={inputStyle}>
-                      {safeDepartments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    </select>
-                  </div>
+
                   <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 18, fontSize: 13, color: C.textSecondary }}>
                     <input type="checkbox" checked={form.isolation} onChange={(e) => updateForm({ isolation: e.target.checked })} />
                     Requires isolation precautions
@@ -1837,22 +1860,20 @@ export default function BedFlowApp() {
                     fontWeight: 700, fontSize: 13.5, fontFamily: FONT_BODY,
                     opacity: form.name.trim() ? 1 : 0.6,
                   }}>
-                    <Zap size={15} /> Run allocation
+                    <Zap size={15} /> Run smart-routing allocation
                   </button>
                 </div>
 
                 <div style={cardStyle} className="lg:col-span-2">
-                  <SectionHeading icon={Zap}>ALGORITHM OUTPUT</SectionHeading>
+                  <SectionHeading icon={Zap}>ALGORITHM OUTPUT (GLOBAL SMART-ROUTING)</SectionHeading>
                   {!results && (
                     <div style={{ padding: "30px 10px", textAlign: "center", color: C.textMuted, fontSize: 13 }}>
-                      Enter a patient and run the allocation algorithm to see ranked bed matches, scored on
-                      specialty fit, acuity match, ward load balance, and isolation compliance.
+                      Enter patient clinical profile and run the auto-routing algorithm to scan all hospital wards simultaneously for optimal placement.
                     </div>
                   )}
                   {results && results.candidates.length === 0 && (
                     <div style={{ padding: "30px 10px", textAlign: "center", color: C.textMuted, fontSize: 13 }}>
-                      No available beds currently meet these requirements. Try adjusting the isolation
-                      requirement, or check back as beds turn over.
+                      No available beds across any department currently meet these clinical requirements.
                     </div>
                   )}
                   {results && results.candidates.map((r, i) => (
