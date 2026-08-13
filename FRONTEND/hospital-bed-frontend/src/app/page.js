@@ -1825,8 +1825,14 @@ export default function BedFlowApp() {
                     <FieldLabel>Patient Age</FieldLabel>
                     <input
                       type="number"
-                      value={form.age}
-                      onChange={(e) => updateForm({ age: parseInt(e.target.value) || 0 })}
+                      min="0"
+                      max="120"
+                      value={form.age === "" ? "" : form.age}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const parsed = val === "" ? "" : parseInt(val, 10);
+                        updateForm({ age: isNaN(parsed) ? "" : parsed });
+                      }}
                       placeholder="e.g. 30"
                       style={inputStyle}
                     />

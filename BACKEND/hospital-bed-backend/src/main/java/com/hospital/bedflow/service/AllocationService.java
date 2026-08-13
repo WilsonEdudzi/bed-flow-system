@@ -36,15 +36,18 @@ public class AllocationService {
         List<Bed> allBeds = bedRepository.findAll();
         List<Department> departments = departmentRepository.findAll();
 
-        // Normalize frontend clinical category into standard department short codes
-        String targetDeptCode = mapCategoryToDeptCode(req.getClinicalCategory());
+        String targetDeptCode = mapCategoryToDeptCode(req.getClinicalCategory(), req.getAcuity());
         Integer patientAge = req.getAge() != null ? req.getAge() : 30;
 
         List<Bed> candidates = allBeds.stream()
             .filter(b -> b.getStatus() == BedStatus.AVAILABLE)
             .filter(b -> {
-                // Hard clinical constraint: Filter out Pediatric ward if patient is an adult (>= 18)
+                // Pediatric age constraint
                 if (b.getDept().equalsIgnoreCase("ped") && patientAge >= 18) {
+                    return false;
+                }
+                // Critical Acuity 4-5 constraint: Standard general/maternity wards shouldn't take critical patients unless surge
+                if (req.getAcuity() >= 4 && (b.getDept().equalsIgnoreCase("gen") || b.getDept().equalsIgnoreCase("mat")) && !req.getSurgeMode()) {
                     return false;
                 }
                 // Isolation constraint check
@@ -70,11 +73,11 @@ public class AllocationService {
 
             int specialty;
             if (bed.getDept().equalsIgnoreCase(targetDeptCode)) {
-                specialty = 40; // Direct match with smart-routed specialty
+                specialty = 40; 
             } else if (COMPATIBLE.getOrDefault(targetDeptCode, List.of()).contains(bed.getDept().toLowerCase())) {
-                specialty = 18; // Compatible overflow ward
+                specialty = 22; 
             } else {
-                specialty = 4;
+                specialty = 5;
             }
 
             double mid = (dept.getMinAcuity() + dept.getMaxAcuity()) / 2.0;
@@ -82,15 +85,19 @@ public class AllocationService {
             double distance = Math.abs(acuityVal - mid);
             
             int acuityFit;
-            // Clinical validation: penalize heavily if patient acuity is outside the department's allowed bounds
             if (acuityVal < dept.getMinAcuity() || acuityVal > dept.getMaxAcuity()) {
-                acuityFit = -25; // Severe penalty for clinical mismatch
+                acuityFit = -25; 
             } else {
                 if (isSurge) {
                     acuityFit = Math.max(0, (int) Math.round(50 - distance * 12));
                 } else {
                     acuityFit = Math.max(0, (int) Math.round(30 - distance * 9));
                 }
+            }
+
+            // Boost ICU score automatically if patient is critical (Acuity 5)
+            if (acuityVal == 5 && bed.getDept().equalsIgnoreCase("icu")) {
+                acuityFit += 15;
             }
 
             List<Bed> deptBeds = allBeds.stream().filter(b -> b.getDept().equals(bed.getDept())).collect(Collectors.toList());
@@ -101,7 +108,6 @@ public class AllocationService {
 
             int bonus = Boolean.TRUE.equals(req.getIsolation()) ? (dept.getIsolationCapable() >= 1.0 ? 10 : 5) : 7;
 
-            // Ensure total score remains bounded between 0 and 100
             int rawTotal = specialty + acuityFit + loadBalance + bonus;
             int total = Math.max(0, Math.min(100, rawTotal));
 
@@ -112,7 +118,11 @@ public class AllocationService {
         return scored.stream().limit(5).collect(Collectors.toList());
     }
 
-    private String mapCategoryToDeptCode(String category) {
+    private String mapCategoryToDeptCode(String category, int acuity) {
+        // Critical override: if acuity is 4 or 5, automatically target ICU regardless of minor category choice
+        if (acuity >= 4) {
+            return "icu";
+        }
         if (category == null) return "gen";
         String lower = category.toLowerCase();
         if (lower.contains("emer") || lower.contains("trauma")) return "er";
