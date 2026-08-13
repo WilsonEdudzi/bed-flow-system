@@ -36,9 +36,18 @@ public class AllocationService {
         List<Bed> allBeds = bedRepository.findAll();
         List<Department> departments = departmentRepository.findAll();
 
+        // Normalize frontend clinical category into standard department short codes
+        String targetDeptCode = mapCategoryToDeptCode(req.getClinicalCategory());
+        Integer patientAge = req.getAge() != null ? req.getAge() : 30;
+
         List<Bed> candidates = allBeds.stream()
             .filter(b -> b.getStatus() == BedStatus.AVAILABLE)
             .filter(b -> {
+                // Hard clinical constraint: Filter out Pediatric ward if patient is an adult (>= 18)
+                if (b.getDept().equalsIgnoreCase("ped") && patientAge >= 18) {
+                    return false;
+                }
+                // Isolation constraint check
                 if (Boolean.TRUE.equals(req.getIsolation())) {
                     Department dept = departments.stream()
                         .filter(d -> d.getId().equals(b.getDept()))
@@ -50,7 +59,7 @@ public class AllocationService {
             .collect(Collectors.toList());
 
         List<ScoredBed> scored = new ArrayList<>();
-        boolean isSurge = req.getSurgeMode();
+        boolean isSurge = Boolean.TRUE.equals(req.getSurgeMode());
 
         for (Bed bed : candidates) {
             Department dept = departments.stream()
@@ -60,20 +69,21 @@ public class AllocationService {
             if (dept == null) continue;
 
             int specialty;
-            if (bed.getDept().equalsIgnoreCase(req.getDept())) {
-                specialty = 40;
-            } else if (COMPATIBLE.getOrDefault(req.getDept().toLowerCase(), List.of()).contains(bed.getDept().toLowerCase())) {
-                specialty = 18;
+            if (bed.getDept().equalsIgnoreCase(targetDeptCode)) {
+                specialty = 40; // Direct match with smart-routed specialty
+            } else if (COMPATIBLE.getOrDefault(targetDeptCode, List.of()).contains(bed.getDept().toLowerCase())) {
+                specialty = 18; // Compatible overflow ward
             } else {
                 specialty = 4;
             }
 
             double mid = (dept.getMinAcuity() + dept.getMaxAcuity()) / 2.0;
-            double distance = Math.abs(req.getAcuity() - mid);
+            int acuityVal = req.getAcuity() != null ? req.getAcuity() : 3;
+            double distance = Math.abs(acuityVal - mid);
             
             int acuityFit;
             // Clinical validation: penalize heavily if patient acuity is outside the department's allowed bounds
-            if (req.getAcuity() < dept.getMinAcuity() || req.getAcuity() > dept.getMaxAcuity()) {
+            if (acuityVal < dept.getMinAcuity() || acuityVal > dept.getMaxAcuity()) {
                 acuityFit = -25; // Severe penalty for clinical mismatch
             } else {
                 if (isSurge) {
@@ -99,6 +109,17 @@ public class AllocationService {
         }
 
         scored.sort((a, b) -> Integer.compare(b.getTotal(), a.getTotal()));
-        return scored.stream().limit(4).collect(Collectors.toList());
+        return scored.stream().limit(5).collect(Collectors.toList());
+    }
+
+    private String mapCategoryToDeptCode(String category) {
+        if (category == null) return "gen";
+        String lower = category.toLowerCase();
+        if (lower.contains("emer") || lower.contains("trauma")) return "er";
+        if (lower.contains("icu") || lower.contains("critical")) return "icu";
+        if (lower.contains("ped")) return "ped";
+        if (lower.contains("mat") || lower.contains("obstetric")) return "mat";
+        if (lower.contains("surg")) return "sur";
+        return "gen";
     }
 }
